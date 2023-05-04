@@ -11,8 +11,11 @@ import seaborn as sns
 from pgmpy.models import BayesianNetwork
 from pgmpy.inference import VariableElimination
 from pgmpy.estimators import MaximumLikelihoodEstimator
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, f1_score
 import matplotlib.pyplot as plt
+from pgmpy.estimators import HillClimbSearch
+from pgmpy.estimators import K2Score, BicScore
+import networkx as nx
 ##
 # Se leen los datos
 data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
@@ -179,5 +182,38 @@ plt.xlabel('Predicciones')
 plt.tight_layout()
 plt.show()
 
+precision = precision_score(anotaciones, predicciones, average = 'micro')
+
+cobertura = recall_score(anotaciones, predicciones, average = 'micro')
+
+f1 = f1_score(anotaciones, predicciones, average = 'micro')
+##
+#Estimación por Puntaje
+nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
+
+DEntr = np.zeros((250,7))
+columnas = [0, 4, 5, 8, 9, 12, 13]
+
+for i in range(len(columnas)):
+    DEntr[:,i] = DataEntrenamiento[:,columnas[i]]
+
+
+DFEntrenamiento = pd.DataFrame(DEntr, columns = nombres)
+##
+scoring_method = K2Score(data=DFEntrenamiento)
+esth = HillClimbSearch(data = DFEntrenamiento)
+estimated_modelh = esth.estimate(
+    scoring_method=scoring_method, max_indegree = 7, max_iter=int(1e4)
+)
+print(estimated_modelh)
+print(estimated_modelh.nodes())
+print(estimated_modelh.edges())
+
+graph = nx.DiGraph()
+graph.add_nodes_from(estimated_modelh.nodes())
+graph.add_edges_from(estimated_modelh.edges())
+plt.figure(figsize = (5,5))
+pos = {'EXANG': (1.9, 0.3), 'THAL': (0.2, 1), 'FBS': (1.02, 0.3), 'CHOL': (1.9, 1), 'OLDPEAK': (1.9, 1.7), 'AGE': (1.02, 1.7), 'HD': (1, 1)}
+nx.draw(graph, pos = pos, with_labels = True, node_color = 'pink', node_size = 2300, font_size = 10, arrowsize = 20)
 
 
