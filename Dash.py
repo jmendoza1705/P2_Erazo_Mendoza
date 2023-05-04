@@ -18,60 +18,82 @@ pio.renderers.default = "browser"
 
 
 # Se leen los datos
-data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
+data0 =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
 names = ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope", "ca",
          "thal", "num"]
-data.columns = names
-data['ca'] = pd.to_numeric(data['ca'], errors='coerce')
-data['thal'] = pd.to_numeric(data['thal'], errors='coerce')
-data = data.astype(float)
-data = data.dropna()
-data = data.to_numpy()
+data0.columns = names
+data0['ca'] = pd.to_numeric(data0['ca'], errors='coerce')
+data0['thal'] = pd.to_numeric(data0['thal'], errors='coerce')
+data0 = data0.astype(float)
+data0 = data0.dropna()
+data0 = data0.to_numpy()
 
 # Se estandarizan las variables para el diagnostico:
     # 0 -- No presenta heart disease
     # 1 -- mild heart disease
     # 3 -- severe heart disease
-for j in range(0, data.shape[0]):
-    if data[j, 13] == 2:
-        data[j, 13] = 1
-    elif data[j, 13] == 4:
-        data[j, 13] = 3
+for j in range(0, data0.shape[0]):
+    if data0[j, 13] == 2:
+        data0[j, 13] = 1
+    elif data0[j, 13] == 4:
+        data0[j, 13] = 3
 
 info = np.zeros((297, 7))
 columnas = [0, 4, 5, 8, 9, 12, 13]
 nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
 for i in range(len(columnas)):
-    info[:, i] = data[:, columnas[i]]
-data = pd.DataFrame(info, columns=nombres)
+    info[:, i] = data0[:, columnas[i]]
+data1 = pd.DataFrame(info, columns=nombres)
 
 
-def EstimacionModelos(data):
+def EstimacionModelos():
+    # Se leen los datos
+    data = pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
+    names = ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope", "ca",
+             "thal", "num"]
+    data.columns = names
+    data['ca'] = pd.to_numeric(data['ca'], errors='coerce')
+    data['thal'] = pd.to_numeric(data['thal'], errors='coerce')
+    data = data.astype(float)
+
+    data = data.dropna()
+    data = data.to_numpy()
+    # Se estandarizan las variables para el diagnostico:
+    # 0 -- No presenta heart disease
+    # 1 -- mild heart disease
+    # 3 -- severe heart disease
+    for j in range(0, data.shape[0]):
+        if data[j, 13] == 2:
+            data[j, 13] = 1
+        elif data[j, 13] == 4:
+            data[j, 13] = 3
+
     # Discretizacion del colesterol
     # menos de 200 -- Deseable
     # de 200 a 239 -- En el limite superior
     # mas de 240 -- alto
     # https://www.mayoclinic.org/es-es/tests-procedures/cholesterol-test/about/pac-20384601
+
     for j in range(0, data.shape[0]):
-        if data[j, 1] < 200:
-            data[j, 1] = 0
-        elif (200 <= data[j, 1] < 240):
-            data[j, 1] = 1
-        elif data[j, 1] >= 240:
-            data[j, 1] = 2
+        if data[j, 4] < 200:
+            data[j, 4] = 0
+        elif (200 <= data[j, 4] < 240):
+            data[j, 4] = 1
+        elif data[j, 4] >= 240:
+            data[j, 4] = 2
 
     # Discretización de OldPeak
     # Menos de 2 - 0
     # Entre 2 y 4 - 1
     # Mayor o igual a 4 - 2
-    for j in range(0, data.shape[0]):
-        if data[j, 4] < 2:
-            data[j, 4] = 0
-        elif (2 <= data[j, 4] < 4):
-            data[j, 4] = 1
-        elif data[j, 4] >= 4:
-            data[j, 4] = 2
 
+    for j in range(0, data.shape[0]):
+        if data[j, 9] < 2:
+            data[j, 9] = 0
+        elif (2 <= data[j, 9] < 4):
+            data[j, 9] = 1
+        elif data[j, 9] >= 4:
+            data[j, 9] = 2
 
     # Discretización de la edad
     # 29 a 39 -- 30
@@ -79,6 +101,7 @@ def EstimacionModelos(data):
     # 50 a 59 -- 50
     # 60 a 69 -- 60
     # Mayor o igual a 70 -- 70
+
     for j in range(0, data.shape[0]):
         if (29 <= data[j, 0] < 40):
             data[j, 0] = 30
@@ -88,28 +111,34 @@ def EstimacionModelos(data):
             data[j, 0] = 50
         elif (60 <= data[j, 0] < 70):
             data[j, 0] = 60
-        elif data[j, 0] >= 70 :
+        elif data[j, 0] >= 70:
             data[j, 0] = 70
 
-    # Se dividen los datos entre Entrenamiento y Validación
-    muestras = data[0:250,]
+    # Se define el modelo
 
-    # Se define el modelo del Proyecto 1
     # Se define la red bayesiana
     modelo_HD = BayesianNetwork([("AGE", "CHOL"), ("FBS", "CHOL"), ("CHOL", "HD"), ("THAL", "HD"), ("HD", "EXANG"),
-                             ("HD", "OLDPEAK")])
+                                 ("HD", "OLDPEAK")])
+
+    # Se definen las muestras
+    info = np.zeros((297, 7))
+    columnas = [0, 4, 5, 8, 9, 12, 13]
+    nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
+    for i in range(len(columnas)):
+        info[:, i] = data[:, columnas[i]]
+    muestras = pd.DataFrame(info[0:250,], columns=nombres)
 
 
     # Estimación de las CPDs
-    modelo_HD.fit(data = muestras, estimator = MaximumLikelihoodEstimator)
-    # Se realiza la eliminación de variables
+    modelo_HD.fit(data=muestras, estimator=MaximumLikelihoodEstimator)
+    # Eliminación de variables
     ModHDP1 = VariableElimination(modelo_HD)
+
 
     # Se define el modelo por puntaje K2
     scoring_method = K2Score(data = muestras)
     esth = HillClimbSearch(data = muestras)
-    estimated_modelh = esth.estimate(
-        scoring_method=scoring_method, max_indegree=8, max_iter=int(1e4))
+    estimated_modelh = esth.estimate(scoring_method=scoring_method, max_indegree=8, max_iter=int(1e4))
 
     modeloK2 = BayesianNetwork()
     edges = estimated_modelh.edges()
@@ -121,21 +150,18 @@ def EstimacionModelos(data):
     # Se retornan los modelos estimados
     return ModHDP1, ModK2
 
-
+# VISUALIZACIONES
 
 # Visualizacion 1
-fig_v1 = px.scatter(x=data['AGE'], y=data['CHOL'], trendline="ols", trendline_color_override= 'lightcoral', labels={'x':'Edad (Años)', 'y':'Colesterol (mg/dL)'})
+fig_v1 = px.scatter(x=data1['AGE'], y=data1['CHOL'], trendline="ols", trendline_color_override= 'lightcoral', labels={'x':'Edad (Años)', 'y':'Colesterol (mg/dL)'})
 fig_v1.update_traces(marker_color='lightpink')
 fig_v1.update_layout(width=1000,plot_bgcolor="rgba(255,255,255,255)",title_text='Colesterol en función de la Edad', title_x=0.5, title_font_size=20)
 fig_v1.update_xaxes( showline=True, linewidth=1, linecolor='black', mirror=True)
 fig_v1.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
-
 # Visualizacion 2
-df = data[["FBS", "EXANG", "HD"]]
+df = data1[["FBS", "EXANG", "HD"]]
 df = df.to_numpy()
-
-
 fbs0, fbs1, fbs3 = 0, 0, 0
 exang0, exang1, exang3  = 0, 0, 0
 for i in range(len(df)):
@@ -166,7 +192,7 @@ fig_v2.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='bl
 fig_v2.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
 # Visualizacion 3
-df2 = data[["THAL","HD"]]
+df2 = data1[["THAL","HD"]]
 df2 = df2.to_numpy()
 
 HD03, HD06, HD07, HD13, HD16, HD17, HD33, HD36, HD37 = 0,0, 0,0, 0,0, 0,0, 0
@@ -209,7 +235,7 @@ fig_v3.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='bl
 fig_v3.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
 
-# Dash -------------------------------------------------------------------------------------------------------------------
+# DASH -------------------------------------------------------------------------------------------------------------------
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -385,8 +411,8 @@ app.layout = html.Div(children=[
 
 # Función para crear y actualizar la gráfica
 def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
-    modelo1 = EstimacionModelos(data)[0]
-    modelo2 = EstimacionModelos(data)[1]
+    modelo1 = EstimacionModelos()[0]
+    modelo2 = EstimacionModelos()[1]
 
     pred = modelo1.query(["HD"], evidence={"AGE": age, "FBS": Fbs, "CHOL": Chol, "OLDPEAK": st, "EXANG": ex, "THAL": tal})
     val1 = round(pred.values[0], 2)
@@ -409,12 +435,12 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
         fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
                              text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
                              text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.update_layout(width=1400, bargap=0.45,
                           plot_bgcolor="rgba(255,255,255,255)",
@@ -423,8 +449,8 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                          title_text='Precisión : 0.76', row=1, col=2)
-        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
 
 
     elif math.isnan(val12) or math.isnan(val22) or math.isnan(val32):
@@ -435,12 +461,12 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
         fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
                              text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
                              text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.update_layout(width=1400, bargap=0.45,
                           plot_bgcolor="rgba(255,255,255,255)",
@@ -449,8 +475,8 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                          title_text='Precisión : 0.71', row=1, col=1)
-        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
 
 
     else:
@@ -459,12 +485,12 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
         fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
                              text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
                              text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
-        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+        fig.update_traces(marker_color='lightpink', textfont_size=14)
 
         fig.update_layout(width=1400, bargap=0.45,
                           plot_bgcolor="rgba(255,255,255,255)",
@@ -473,10 +499,10 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                          title_text='Precisión : 0.71', row=1, col=1)
+                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                          title_text='Precisión : 0.76', row=1, col=2)
+                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
 
         fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
