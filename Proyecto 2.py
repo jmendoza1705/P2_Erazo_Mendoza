@@ -8,7 +8,7 @@
 import pandas as pd
 import numpy as np
 import seaborn as sns
-from pgmpy.models import BayesianNetwork
+from pgmpy.models import BayesianNetwork, BayesianModel
 from pgmpy.inference import VariableElimination
 from pgmpy.estimators import MaximumLikelihoodEstimator
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, f1_score
@@ -216,4 +216,65 @@ plt.figure(figsize = (5,5))
 pos = {'EXANG': (1.9, 0.3), 'THAL': (0.2, 1), 'FBS': (1.02, 0.3), 'CHOL': (1.9, 1), 'OLDPEAK': (1.9, 1.7), 'AGE': (1.02, 1.7), 'HD': (1, 1)}
 nx.draw(graph, pos = pos, with_labels = True, node_color = 'pink', node_size = 2300, font_size = 10, arrowsize = 20)
 
+##
 
+DFValidacion = pd.DataFrame(Val, columns = nombres)
+modeloK2 = BayesianNetwork()
+edges = estimated_modelh.edges()
+
+modeloK2.add_edges_from(edges)
+modeloK2.fit(data = DFValidacion, estimator = MaximumLikelihoodEstimator)
+
+for i in modeloK2.nodes():
+    print("CPD ", i,"\n", modeloK2.get_cpds(i))
+
+#Se imprime completa la CDP HD
+for i in range(len(modeloK2.get_cpds("HD").values)):
+    print(modeloK2.get_cpds("HD").values[i])
+
+# Se realiza la eliminación de variables
+K2Mod = VariableElimination(modeloK2)
+##
+
+prediccionesK2 = []
+anotacionesK2 = []
+
+for i in range(0, len(Val)):
+    exk2, stk2, talk2 = Val[i, 3],Val[i, 4], Val[i, 5]
+
+    anotacionesK2 = np.append(anotacionesK2, Val[i, 6])
+
+    posterior_pk2 = K2Mod.query(["HD"],evidence={"OLDPEAK": stk2, "EXANG": exk2, "THAL": talk2})
+
+    probabilidadesk2 = posterior_pk2.values
+
+    if np.isnan(probabilidadesk2).any():
+        anotacionesK2 = np.delete(anotacionesK2, i, axis=0)
+
+    maximok2 = np.max(probabilidadesk2)
+    for j in range(0, len(probabilidadesk2)):
+        if probabilidadesk2[j] == maximok2:
+            posicionk2 = j
+            if posicionk2 == 2:
+                prediccionesK2 = np.append(prediccionesK2, 3)
+            else:
+                prediccionesK2 = np.append(prediccionesK2, posicionk2)
+##
+matrizK2 = confusion_matrix(anotacionesK2, prediccionesK2)
+
+cm_displayK2 = ConfusionMatrixDisplay(confusion_matrix = matrizK2,
+                                    display_labels = ['No EC', 'EC Leve','EC Severa'])
+
+
+cm_display.plot(cmap = 'PuRd', colorbar = True)
+plt.title('Matriz de Confusión para Predicción de Enfermedad Cardiaca (EC) \n con Estimación por Puntaje K2 \n')
+plt.ylabel('Anotaciones')
+plt.xlabel('Predicciones')
+plt.tight_layout()
+plt.show()
+
+precisionK2 = precision_score(anotacionesK2, prediccionesK2, average = 'micro')
+
+coberturaK2 = recall_score(anotacionesK2, prediccionesK2, average = 'micro')
+
+f1K2 = f1_score(anotacionesK2, prediccionesK2, average = 'micro')
