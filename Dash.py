@@ -10,21 +10,226 @@ from pgmpy.estimators import MaximumLikelihoodEstimator
 import math
 import plotly.graph_objs as go
 import base64
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
+from pgmpy.models import BayesianNetwork, BayesianModel
+from pgmpy.inference import VariableElimination
+from pgmpy.estimators import MaximumLikelihoodEstimator, PC
+from pgmpy.estimators import HillClimbSearch
+from pgmpy.estimators import K2Score, BicScore
+import math
+from plotly.subplots import make_subplots
+import plotly.graph_objs as go
+import plotly.offline as pyo
+import plotly.io as pio
+pio.renderers.default = "browser"
+
+
+# Se leen los datos
+data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
+names = ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope", "ca",
+         "thal", "num"]
+data.columns = names
+data['ca'] = pd.to_numeric(data['ca'], errors='coerce')
+data['thal'] = pd.to_numeric(data['thal'], errors='coerce')
+data = data.astype(float)
+data = data.dropna()
+data = data.to_numpy()
+
+# Se estandarizan las variables para el diagnostico:
+    # 0 -- No presenta heart disease
+    # 1 -- mild heart disease
+    # 3 -- severe heart disease
+for j in range(0, data.shape[0]):
+    if data[j, 13] == 2:
+        data[j, 13] = 1
+    elif data[j, 13] == 4:
+        data[j, 13] = 3
+
+info = np.zeros((297, 7))
+columnas = [0, 4, 5, 8, 9, 12, 13]
+nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
+for i in range(len(columnas)):
+    info[:, i] = data[:, columnas[i]]
+data = pd.DataFrame(info, columns=nombres)
+
+
+def EstimacionModelos():
+    # Discretizacion del colesterol
+    # menos de 200 -- Deseable
+    # de 200 a 239 -- En el limite superior
+    # mas de 240 -- alto
+    # https://www.mayoclinic.org/es-es/tests-procedures/cholesterol-test/about/pac-20384601
+    for j in range(0, data.shape[0]):
+        if data[j, 4] < 200:
+            data[j, 4] = 0
+        elif (200 <= data[j, 4] < 240):
+            data[j, 4] = 1
+        elif data[j, 4] >= 240:
+            data[j, 4] = 2
+
+    # Discretización de OldPeak
+    # Menos de 2 - 0
+    # Entre 2 y 4 - 1
+    # Mayor o igual a 4 - 2
+    for j in range(0, data.shape[0]):
+        if data[j, 9] < 2:
+            data[j, 9] = 0
+        elif (2 <= data[j, 9] < 4):
+            data[j, 9] = 1
+        elif data[j, 9] >= 4:
+            data[j, 9] = 2
+
+
+    # Discretización de la edad
+    # 29 a 39 -- 30
+    # 40 a 49 -- 40
+    # 50 a 59 -- 50
+    # 60 a 69 -- 60
+    # Mayor o igual a 70 -- 70
+    for j in range(0, data.shape[0]):
+        if (29 <= data[j, 0] < 40):
+            data[j, 0] = 30
+        elif (40 <= data[j, 0] < 50):
+            data[j, 0] = 40
+        elif (50 <= data[j, 0] < 60):
+            data[j, 0] = 50
+        elif (60 <= data[j, 0] < 70):
+            data[j, 0] = 60
+        elif data[j, 0] >= 70 :
+            data[j, 0] = 70
+
+    # Se dividen los datos entre Entrenamiento y Validación
+    DataEntrenamiento = data[0:250,]
+
+    # Se define el modelo del Proyecto 1
+    # Se define la red bayesiana
+    modelo_HD = BayesianNetwork([("AGE", "CHOL"), ("FBS", "CHOL"), ("CHOL", "HD"), ("THAL", "HD"), ("HD", "EXANG"),
+                             ("HD", "OLDPEAK")])
+
+    # Se definen las muestras con los datos de entrenamiento
+    info = np.zeros((250,7))
+    columnas = [0, 4, 5, 8, 9, 12, 13]
+    nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
+    for i in range(len(columnas)):
+        info[:,i] = DataEntrenamiento[:,columnas[i]]
+    muestras = pd.DataFrame(info, columns = nombres)
+
+    # Estimación de las CPDs
+    modelo_HD.fit(data = muestras, estimator = MaximumLikelihoodEstimator)
+    # Se realiza la eliminación de variables
+    ModHDP1 = VariableElimination(modelo_HD)
+
+    # Se define el modelo por puntaje K2
+    scoring_method = K2Score(data = muestras)
+    esth = HillClimbSearch(data = muestras)
+    estimated_modelh = esth.estimate(
+        scoring_method=scoring_method, max_indegree=8, max_iter=int(1e4))
+
+    modeloK2 = BayesianNetwork()
+    edges = estimated_modelh.edges()
+
+    modeloK2.add_edges_from(edges)
+    modeloK2.fit(data = muestras, estimator = MaximumLikelihoodEstimator)
+    ModK2 = VariableElimination(modeloK2)
+
+    # Se retornan los modelos estimados
+    return ModHDP1, ModK2
 
 
 
+# Visualizacion 1
+fig_v1 = px.scatter(x=data['AGE'], y=data['CHOL'], trendline="ols", trendline_color_override= 'lightcoral', labels={'x':'Edad (Años)', 'y':'Colesterol (mg/dL)'})
+fig_v1.update_traces(marker_color='lightpink')
+fig_v1.update_layout(width=1000,plot_bgcolor="rgba(255,255,255,255)",title_text='Colesterol en función de la Edad', title_x=0.5, title_font_size=20)
+fig_v1.update_xaxes( showline=True, linewidth=1, linecolor='black', mirror=True)
+fig_v1.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+
+
+# Visualizacion 2
+df = data[["FBS", "EXANG", "HD"]]
+df = df.to_numpy()
+
+
+fbs0, fbs1, fbs3 = 0, 0, 0
+exang0, exang1, exang3  = 0, 0, 0
+for i in range(len(df)):
+    if df[i,2] == 0:
+        if df[i,0] == 1:
+            fbs0 += 1
+        if df[i,1] == 1:
+            exang0 += 1
+    if df[i,2] == 1:
+        if df[i,0] == 1:
+            fbs1 += 1
+        if df[i,1] == 1:
+            exang1 += 1
+    if df[i,2] == 3:
+        if df[i,0] == 1:
+            fbs3 += 1
+        if df[i,1] == 1:
+            exang3 += 1
+
+hd = ['No Heart Desease','Mild Heart Desease','Severe Heart Desease']
+fbs = [fbs0, fbs1, fbs3]
+exang = [exang0, exang1, exang3]
+fig_v2 = go.Figure(data=[go.Bar(name='FBS = 1', x=hd, y=fbs, marker=dict(color='crimson')),go.Bar(name='EXANG = 1', x=hd, y=exang, marker=dict(color='lightpink'))])
+fig_v2.update_layout(width=1000,barmode='group', yaxis=dict(title='Frecuencia'),  plot_bgcolor="rgba(255,255,255,255)"
+                  , title='Frecuencia de Glucosa Alta y Angina Inducida por el Ejercicio', title_x=0.5, title_font_size=20,
+                  legend_font_size = 16, xaxis = {'tickfont': {'size': 15}})
+fig_v2.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True)
+fig_v2.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+
+# Visualizacion 3
+df2 = data[["THAL","HD"]]
+df2 = df2.to_numpy()
+
+HD03, HD06, HD07, HD13, HD16, HD17, HD33, HD36, HD37 = 0,0, 0,0, 0,0, 0,0, 0
+
+for i in range(len(df2)):
+    if df2[i,0] == 3:
+        if df2[i,1] == 0:
+            HD03 += 1
+        if df2[i,1] == 1:
+            HD13 += 1
+        if df2[i,1] == 3:
+            HD33 += 1
+    if df2[i,0] == 6:
+        if df2[i,1] == 0:
+            HD06 += 1
+        if df2[i,1] == 1:
+            HD16 += 1
+        if df2[i,1] == 3:
+            HD36 += 1
+    if df2[i,0] == 7:
+        if df2[i,1] == 0:
+            HD07 += 1
+        if df2[i,1] == 1:
+            HD17 += 1
+        if df2[i,1] == 3:
+            HD37 += 1
+
+Tal = ['Normal', 'Defecto Fijo', 'Defecto Reversible']
+HD0 = [HD03, HD06, HD07]
+HD1 = [HD13, HD16, HD17]
+HD3 = [HD33, HD36, HD37]
+
+fig_v3 = go.Figure(data=[go.Bar(name='No Heart Desease', x=Tal, y=HD0, marker=dict(color='palevioletred')),
+                      go.Bar(name='Mild Heart Desease', x=Tal, y=HD1, marker=dict(color='lightpink')),
+                      go.Bar(name='Severe Heart Desease', x=Tal, y=HD3, marker=dict(color='mistyrose'))])
+fig_v3.update_layout(width=1000,barmode='group', yaxis=dict(title='Frecuencia'),  plot_bgcolor="rgba(255,255,255,255)"
+                  , title='Efecto del Tipo de Talasemia en la Enfermedad Cardiaca', title_x=0.5, title_font_size=20,
+                  legend_font_size = 16, xaxis = {'tickfont': {'size': 15}})
+fig_v3.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True)
+fig_v3.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
+
+
+# Dash -------------------------------------------------------------------------------------------------------------------
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
-
-df_bar = pd.DataFrame({
-    "Fruit": ["Apples", "Oranges", "Bananas", "Apples", "Oranges", "Bananas"],
-    "Amount": [4, 1, 2, 2, 4, 5],
-    "City": ["SF", "SF", "SF", "Montreal", "Montreal", "Montreal"]
-})
-
-fig = px.bar(df_bar, x="Fruit", y="Amount", color="City", barmode="group")
 
 # Se definen los colores
 colors = {'background': "#F4B5CC",'color': '#521383'}
@@ -97,36 +302,25 @@ def tabVisual(tab):
             html.Br(),
             html.Div([
             html.Div([
-                html.H1(children='Hello Dash'),
-                html.Div(children='''
-                            Dash: A web application framework for Python.'''),
                 dcc.Graph(
                     id='graph1',
-                    figure=fig
+                    figure=fig_v1
                 ),
             ], className='six columns'),
 
             html.Div([
-                html.H1(children='Hello Dash'),
-                html.Div(children='''
-                            Dash: A web application framework for Python.'''),
                 dcc.Graph(
                     id='graph2',
-                    figure=fig
+                    figure=fig_v2
                 ),
             ], className='six columns'),
         ], className='row'),
+
         # New Div for all elements in the new 'row' of the page
         html.Div([
-            html.H1(children='Hello Dash'),
-
-            html.Div(children='''
-                        Dash: A web application framework for Python.
-                    '''),
-
             dcc.Graph(
                 id='graph3',
-                figure=fig
+                figure=fig_v3
             ),
         ], className='row')
         ])
@@ -209,13 +403,123 @@ def tabPred(tab):
                 html.Br(),
                 dcc.Graph(id='graph-prob')]),
 
-            html.Div(html.H5('Este sistema cuenta con una precisión del 70% y una cobertura del 65%'),
-                     style={'backgroundColor': "#FC8BB3",
-                            'textAlign': 'center'}),
-
         ])
 
 
+# Función de Callback
+@app.callback(
+    Output('graph-prob', "figure"),
+    [Input('button', "n_clicks")],
+    [State('Edad', 'value'),
+     State('Glucosa', 'value'),
+     State('Colesterol', 'value'),
+     State('ST', 'value'),
+     State('Ex', 'value'),
+     State('Talasemia', 'value')],prevent_initial_call=True, suppress_callback_exceptions=True)
+
+# Función para crear y actualizar la gráfica
+def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
+    modelo1 = EstimacionModelos()[0]
+    modelo2 = EstimacionModelos()[1]
+
+    pred = modelo1.query(["HD"],
+                         evidence={"AGE": age, "FBS": Fbs, "CHOL": Chol, "OLDPEAK": st, "EXANG": ex, "THAL": tal})
+    pred2 = modelo2.query(["HD"], evidence={"OLDPEAK": st, "EXANG": ex, "THAL": tal})
+
+    heart = ['No Heart Disease', 'Mild Heart Disease', 'Severe Heart Disease']
+
+    # Resultados predicción M1
+    dict2 = {'Nivel Enfermedad Cardiaca': heart,
+             'Probabilidad Estimada': [round(pred.values[0], 2), round(pred.values[1], 2), round(pred.values[2], 2)]}
+
+    # Resultados predicción M2
+    dict22 = {'Nivel Enfermedad Cardiaca': heart,
+              'Probabilidad Estimada': [round(pred2.values[0], 2), round(pred2.values[1], 2),
+                                        round(pred2.values[2], 2)]}
+
+    # Se crea la gráfica de barras
+
+    if math.isnan(pred.values[0]) or math.isnan(pred.values[1]) or math.isnan(pred.values[2]):
+
+        fig = make_subplots(rows=1, cols=2,
+                            subplot_titles=("No es posible calcular la probabilidad con los datos ingresados",
+                                            "Modelo Estimado por Puntake K2"))
+        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
+                             text=dict2['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=1)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
+                             text=dict22['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=2)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.update_layout(width=1400, bargap=0.45,
+                          plot_bgcolor="rgba(255,255,255,255)",
+                          title_text='Probabilidad Estimada Enfermedad Cardiaca', title_x=0.5,
+                          title_font_size=25,
+                          showlegend=False)
+
+        fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
+                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True,
+                         tickfont=dict(size=15))
+
+
+    elif math.isnan(pred2.values[0]) or math.isnan(pred2.values[1]) or math.isnan(pred2.values[2]):
+
+        fig = make_subplots(rows=1, cols=2,
+                            subplot_titles=("Modelo Estimado P1",
+                                            "No es posible calcular la probabilidad con los datos ingresados"))
+        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
+                             text=dict2['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=1)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
+                             text=dict22['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=2)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.update_layout(width=1400, bargap=0.45,
+                          plot_bgcolor="rgba(255,255,255,255)",
+                          title_text='Probabilidad Estimada Enfermedad Cardiaca', title_x=0.5,
+                          title_font_size=25,
+                          showlegend=False)
+
+        fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
+                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
+
+
+    else:
+        fig = make_subplots(rows=1, cols=2, subplot_titles=("Modelo Estimado P1",
+                                                            "Modelo Estimado por Puntake K2"))
+        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
+                             text=dict2['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=1)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
+                             text=dict22['Probabilidad Estimada'],
+                             textposition='auto'), row=1, col=2)
+        fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
+
+        fig.update_layout(width=1400, bargap=0.45,
+                          plot_bgcolor="rgba(255,255,255,255)",
+                          title_text='Probabilidad Estimada Enfermedad Cardiaca', title_x=0.5,
+                          title_font_size=25,
+                          showlegend=False)
+
+        fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
+                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+
+        fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
+                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
+
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
+
+    return fig
 
 if __name__ == '__main__':
     app.run_server(debug=True, use_reloader=False, port=9878)
