@@ -10,12 +10,13 @@ import numpy as np
 import seaborn as sns
 from pgmpy.models import BayesianNetwork, BayesianModel
 from pgmpy.inference import VariableElimination
-from pgmpy.estimators import MaximumLikelihoodEstimator
+from pgmpy.estimators import MaximumLikelihoodEstimator, PC
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_score, recall_score, f1_score
 import matplotlib.pyplot as plt
 from pgmpy.estimators import HillClimbSearch
 from pgmpy.estimators import K2Score, BicScore
 import networkx as nx
+
 ##
 # Se leen los datos
 data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
@@ -203,8 +204,8 @@ DFEntrenamiento = pd.DataFrame(DEntr, columns = nombres)
 scoring_method = K2Score(data=DFEntrenamiento)
 esth = HillClimbSearch(data = DFEntrenamiento)
 estimated_modelh = esth.estimate(
-    scoring_method=scoring_method, max_indegree = 7, max_iter=int(1e4)
-)
+    scoring_method=scoring_method, max_indegree = 8, max_iter=int(1e4))
+
 print(estimated_modelh)
 print(estimated_modelh.nodes())
 print(estimated_modelh.edges())
@@ -223,7 +224,7 @@ modeloK2 = BayesianNetwork()
 edges = estimated_modelh.edges()
 
 modeloK2.add_edges_from(edges)
-modeloK2.fit(data = DFValidacion, estimator = MaximumLikelihoodEstimator)
+modeloK2.fit(data = DFEntrenamiento, estimator = MaximumLikelihoodEstimator)
 
 for i in modeloK2.nodes():
     print("CPD ", i,"\n", modeloK2.get_cpds(i))
