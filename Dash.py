@@ -2,14 +2,6 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.express as px
-import pandas as pd
-import numpy as np
-from pgmpy.models import BayesianNetwork
-from pgmpy.inference import VariableElimination
-from pgmpy.estimators import MaximumLikelihoodEstimator
-import math
-import plotly.graph_objs as go
-import base64
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
@@ -21,7 +13,6 @@ from pgmpy.estimators import K2Score, BicScore
 import math
 from plotly.subplots import make_subplots
 import plotly.graph_objs as go
-import plotly.offline as pyo
 import plotly.io as pio
 pio.renderers.default = "browser"
 
@@ -55,31 +46,31 @@ for i in range(len(columnas)):
 data = pd.DataFrame(info, columns=nombres)
 
 
-def EstimacionModelos():
+def EstimacionModelos(data):
     # Discretizacion del colesterol
     # menos de 200 -- Deseable
     # de 200 a 239 -- En el limite superior
     # mas de 240 -- alto
     # https://www.mayoclinic.org/es-es/tests-procedures/cholesterol-test/about/pac-20384601
     for j in range(0, data.shape[0]):
-        if data[j, 4] < 200:
-            data[j, 4] = 0
-        elif (200 <= data[j, 4] < 240):
-            data[j, 4] = 1
-        elif data[j, 4] >= 240:
-            data[j, 4] = 2
+        if data[j, 1] < 200:
+            data[j, 1] = 0
+        elif (200 <= data[j, 1] < 240):
+            data[j, 1] = 1
+        elif data[j, 1] >= 240:
+            data[j, 1] = 2
 
     # Discretización de OldPeak
     # Menos de 2 - 0
     # Entre 2 y 4 - 1
     # Mayor o igual a 4 - 2
     for j in range(0, data.shape[0]):
-        if data[j, 9] < 2:
-            data[j, 9] = 0
-        elif (2 <= data[j, 9] < 4):
-            data[j, 9] = 1
-        elif data[j, 9] >= 4:
-            data[j, 9] = 2
+        if data[j, 4] < 2:
+            data[j, 4] = 0
+        elif (2 <= data[j, 4] < 4):
+            data[j, 4] = 1
+        elif data[j, 4] >= 4:
+            data[j, 4] = 2
 
 
     # Discretización de la edad
@@ -101,20 +92,13 @@ def EstimacionModelos():
             data[j, 0] = 70
 
     # Se dividen los datos entre Entrenamiento y Validación
-    DataEntrenamiento = data[0:250,]
+    muestras = data[0:250,]
 
     # Se define el modelo del Proyecto 1
     # Se define la red bayesiana
     modelo_HD = BayesianNetwork([("AGE", "CHOL"), ("FBS", "CHOL"), ("CHOL", "HD"), ("THAL", "HD"), ("HD", "EXANG"),
                              ("HD", "OLDPEAK")])
 
-    # Se definen las muestras con los datos de entrenamiento
-    info = np.zeros((250,7))
-    columnas = [0, 4, 5, 8, 9, 12, 13]
-    nombres = ["AGE", "CHOL", "FBS", "EXANG", "OLDPEAK", "THAL", "HD"]
-    for i in range(len(columnas)):
-        info[:,i] = DataEntrenamiento[:,columnas[i]]
-    muestras = pd.DataFrame(info, columns = nombres)
 
     # Estimación de las CPDs
     modelo_HD.fit(data = muestras, estimator = MaximumLikelihoodEstimator)
@@ -240,176 +224,158 @@ app.layout = html.Div(children=[
     html.H1('Sistema de Predicción de Enfermedad Cardíaca', style={'backgroundColor': colors['background'],
                                                                    'textAlign': 'center'}),
     html.Br(),
-    dcc.Tabs(id = 'menupestanas',
-                 value = 'inicio',
-                 children = [
+    dcc.Tabs(id = 'menupestanas', value = 'inicio', children = [
 
-                     dcc.Tab(label = 'Inicio',
-                            style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
-                             value = 'inicio'),
+        # Tab 1
+         dcc.Tab(label = 'Inicio',
+                style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
+                 value = 'inicio', children=[
 
-                     dcc.Tab(label = 'Visualizaciones',
-                            style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
-                             value = 'visuales'),
+                 html.Div([
+                     html.Br(),
+                     html.Br(),
+                     html.Div(html.H6(
+                         'Este sistema permite realizar predicciones del riesgo de sufrir una enfermedad cardíaca para determinar '
+                         'el proceso adecuado a seguir, en busca del bienestar del paciente. Para esto, se tienen en cuenta los '
+                         'siguientes parámetros:')),
+                     html.Br(),
+                     # Explicación de los parámetros utilizads
+                     html.Div([
+                         html.Div(html.H6(dcc.Markdown('''
+                   * **Edad (Age):** Edad del paciente (años).
+                   * **Glucosa (Fbs):** Nivel de glucosa en sangre en ayunas mayor a 120 mg/dL.
+                   * **Colesterol (Chol):** Valor de colesterol total en sangre (mg/dL).
+                   * **ST (Oldpeak):** Depresión del ST inducida por el ejercicio en relación con el reposo.
+                   * **Angina (Exang):** Angina inducida por el ejercicio. 
+                   * **Talasemia (Thal):** Tipo de talasemia.
+                   ''')), style={'display': 'inline-block'}),
+                         html.Div(html.Img(src=dash.get_asset_url("imagen1.png")),
+                                  style={'height': '5%', 'display': 'inline-block'})])
 
-                     dcc.Tab(label = 'Realizar Predicción',
-                            style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
-                             value = 'prediccion')
+                 ])
+            ]),
 
-                 ]),
+        # Tab2
+         dcc.Tab(label = 'Visualizaciones',
+                style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
+                 value = 'visuales', children=[
 
-    html.Div(id = 'pestanas')
+                 html.Div([
+                     html.Br(),
+                     html.Br(),
+                     html.Div([
+                         html.Div([
+                             dcc.Graph(
+                                 id='graph1',
+                                 figure=fig_v1
+                             ),
+                         ], className='six columns'),
 
-    ])
+                         html.Div([
+                             dcc.Graph(
+                                 id='graph2',
+                                 figure=fig_v2
+                             ),
+                         ], className='six columns'),
+                     ], className='row'),
 
+                     # New Div for all elements in the new 'row' of the page
+                     html.Div([
+                         dcc.Graph(
+                             id='graph3',
+                             figure=fig_v3
+                         ),
+                     ], className='row')
+                 ])
+             ]),
 
-@app.callback(Output('pestanas', 'children'), Input('menupestanas', 'value'))
-def tabFunction(tab):
-    '''  '''
+        # Tab 3
+         dcc.Tab(label = 'Realizar Predicción', style={'backgroundColor': "#FCD7E5",'textAlign': 'center', 'font-size': '150%'},
+                 value = 'prediccion', children=[
 
-    return {'inicio' : tabInicio(tab), 'visuales' : tabVisual(tab), 'prediccion' : tabPred(tab)}[tab]
-
-
-def tabInicio(tab):
-    if (tab == 'inicio'):
-        return html.Div([
-            html.Br(),
-            html.Br(),
-            html.Div(html.H6(
-                'Este sistema permite realizar predicciones del riesgo de sufrir una enfermedad cardíaca para determinar '
-                'el proceso adecuado a seguir, en busca del bienestar del paciente. Para esto, se tienen en cuenta los '
-                'siguientes parámetros:')),
-            html.Br(),
-            # Explicación de los parámetros utilizads
-            html.Div([
-            html.Div(html.H6(dcc.Markdown('''
-           * **Edad (Age):** Edad del paciente (años).
-           * **Glucosa (Fbs):** Nivel de glucosa en sangre en ayunas mayor a 120 mg/dL.
-           * **Colesterol (Chol):** Valor de colesterol total en sangre (mg/dL).
-           * **ST (Oldpeak):** Depresión del ST inducida por el ejercicio en relación con el reposo.
-           * **Angina (Exang):** Angina inducida por el ejercicio. 
-           * **Talasemia (Thal):** Tipo de talasemia.
-           ''')), style={'display': 'inline-block'}),
-            html.Div(html.Img(src=dash.get_asset_url("imagen1.png")), style={'height':'5%','display': 'inline-block'})])
-
-        ])
-
-
-def tabVisual(tab):
-    if (tab == 'visuales'):
-        return html.Div([
-            html.Br(),
-            html.Br(),
-            html.Div([
-            html.Div([
-                dcc.Graph(
-                    id='graph1',
-                    figure=fig_v1
-                ),
-            ], className='six columns'),
-
-            html.Div([
-                dcc.Graph(
-                    id='graph2',
-                    figure=fig_v2
-                ),
-            ], className='six columns'),
-        ], className='row'),
-
-        # New Div for all elements in the new 'row' of the page
         html.Div([
-            dcc.Graph(
-                id='graph3',
-                figure=fig_v3
-            ),
-        ], className='row')
-        ])
-
-
-
-def tabPred(tab):
-    if (tab == 'prediccion'):
-        return html.Div([
-            html.Br(),
-
-            # Sección que indica la instrucción a seguir
-            html.Div(html.H5('Seleccione los valores de los parámetros'),
-                     style={'backgroundColor': "#FCD7E5",
-                            'textAlign': 'center'}),
-            html.Br(),
-            # Se definen los parametros con los valores que pueden tomar:
-            html.Div([
-                html.Div(html.H6("Edad (Age)", style={"color": "#A52555"})),
-                html.Div(
-                    '''30: 29 a 39 años / 40: 40 a 49 años / 50: 50 a 59 años / 60: 60 a 69 años / 70: Mayor de 70 años'''),
-                html.Div([
-                    dcc.Dropdown(
-                        id='Edad',
-                        options=[{'label': i, 'value': i} for i in [30, 40, 50, 60, 70]])],
-                    style={'width': '35%', 'display': 'inline-block'}),
-
-                html.Div(html.H6("Glucosa (Fbs)", style={"color": "#A52555"})),
-                html.Div("0: No / 1: Sí"),
-                html.Div([
-                    dcc.Dropdown(
-                        id='Glucosa',
-                        options=[{'label': i, 'value': i} for i in [0, 1]])],
-                    style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
-
-            html.Div([
-                html.Div(html.H6("Colesterol (Chol)", style={"color": "#A52555"})),
-                html.Div("0: menos de 200 / 1: Entre 200 y 239 / 2: Mayor o igual a 240"),
-                html.Div([
-                    dcc.Dropdown(
-                        id='Colesterol',
-                        options=[{'label': i, 'value': i} for i in [0, 1, 2]])],
-                    style={'width': '35%', 'display': 'inline-block'}),
-
-                html.Div(html.H6("ST (Oldpeak)", style={"color": "#A52555"})),
-                html.Div("0: Menos de 2 / 1: Entre 2 y 4 / 2: Mayor o igual a 4"),
-                html.Div([
-                    dcc.Dropdown(
-                        id='ST',
-                        options=[{'label': i, 'value': i} for i in [0, 1, 2]])],
-                    style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
-
-            html.Div([
-                html.Div(html.H6("Angina (Exang)", style={"color": "#A52555"})),
-                html.Div("0: No / 1: Sí"),
-                html.Div([
-                    dcc.Dropdown(
-                        id='Ex',
-                        options=[{'label': i, 'value': i} for i in [0, 1]])],
-                    style={'width': '35%', 'display': 'inline-block'}),
-
-                html.Div(html.H6("Talasemia (Thal)", style={"color": "#A52555"})),
-                html.Div("3: Normal / 6: Defecto fijo / 7: Defecto reversible"),
-                html.Div([
-                    dcc.Dropdown(
-                        id='Talasemia',
-                        options=[{'label': i, 'value': i} for i in [3, 6, 7]])],
-                    style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
-
-            # Se crea el botón
-            html.Div([
                 html.Br(),
-                html.Br(),
-                html.Button('Realizar predicción', id='button', n_clicks=0),
-                dcc.Interval(id='interval', interval=500)]),
 
-            # Se crea la gráfica
-            html.Div([
+                # Sección que indica la instrucción a seguir
+                html.Div(html.H5('Seleccione los valores de los parámetros'),
+                         style={'backgroundColor': "#FCD7E5",
+                                'textAlign': 'center'}),
                 html.Br(),
-                html.Br(),
-                dcc.Graph(id='graph-prob')]),
+                # Se definen los parametros con los valores que pueden tomar:
+                html.Div([
+                    html.Div(html.H6("Edad (Age)", style={"color": "#A52555"})),
+                    html.Div(
+                        '''30: 29 a 39 años / 40: 40 a 49 años / 50: 50 a 59 años / 60: 60 a 69 años / 70: Mayor de 70 años'''),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='Edad',
+                            options=[{'label': i, 'value': i} for i in [30, 40, 50, 60, 70]])],
+                        style={'width': '35%', 'display': 'inline-block'}),
 
+                    html.Div(html.H6("Glucosa (Fbs)", style={"color": "#A52555"})),
+                    html.Div("0: No / 1: Sí"),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='Glucosa',
+                            options=[{'label': i, 'value': i} for i in [0, 1]])],
+                        style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
+
+                html.Div([
+                    html.Div(html.H6("Colesterol (Chol)", style={"color": "#A52555"})),
+                    html.Div("0: menos de 200 / 1: Entre 200 y 239 / 2: Mayor o igual a 240"),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='Colesterol',
+                            options=[{'label': i, 'value': i} for i in [0, 1, 2]])],
+                        style={'width': '35%', 'display': 'inline-block'}),
+
+                    html.Div(html.H6("ST (Oldpeak)", style={"color": "#A52555"})),
+                    html.Div("0: Menos de 2 / 1: Entre 2 y 4 / 2: Mayor o igual a 4"),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='ST',
+                            options=[{'label': i, 'value': i} for i in [0, 1, 2]])],
+                        style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
+
+                html.Div([
+                    html.Div(html.H6("Angina (Exang)", style={"color": "#A52555"})),
+                    html.Div("0: No / 1: Sí"),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='Ex',
+                            options=[{'label': i, 'value': i} for i in [0, 1]])],
+                        style={'width': '35%', 'display': 'inline-block'}),
+
+                    html.Div(html.H6("Talasemia (Thal)", style={"color": "#A52555"})),
+                    html.Div("3: Normal / 6: Defecto fijo / 7: Defecto reversible"),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='Talasemia',
+                            options=[{'label': i, 'value': i} for i in [3, 6, 7]])],
+                        style={'width': '35%', 'display': 'inline-block'})], style={'columnCount': 2}),
+
+                # Se crea el botón
+                html.Div([
+                    html.Br(),
+                    html.Br(),
+                    html.Button('Realizar predicción', id='boton', n_clicks=0),
+                    dcc.Interval(id='interval', interval=500)]),
+
+                # Se crea la gráfica
+                html.Div([
+                    html.Br(),
+                    html.Br(),
+                    dcc.Graph(id='graficaProb')]),
+                    ])
+                 ])
+            ])
         ])
 
 
 # Función de Callback
 @app.callback(
-    Output('graph-prob', "figure"),
-    [Input('button', "n_clicks")],
+    Output('graficaProb', "figure"),
+    [Input('boton', "n_clicks")],
     [State('Edad', 'value'),
      State('Glucosa', 'value'),
      State('Colesterol', 'value'),
@@ -419,38 +385,34 @@ def tabPred(tab):
 
 # Función para crear y actualizar la gráfica
 def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
-    modelo1 = EstimacionModelos()[0]
-    modelo2 = EstimacionModelos()[1]
+    modelo1 = EstimacionModelos(data)[0]
+    modelo2 = EstimacionModelos(data)[1]
 
-    pred = modelo1.query(["HD"],
-                         evidence={"AGE": age, "FBS": Fbs, "CHOL": Chol, "OLDPEAK": st, "EXANG": ex, "THAL": tal})
+    pred = modelo1.query(["HD"], evidence={"AGE": age, "FBS": Fbs, "CHOL": Chol, "OLDPEAK": st, "EXANG": ex, "THAL": tal})
+    val1 = round(pred.values[0], 2)
+    val2 = round(pred.values[1], 2)
+    val3 = round(pred.values[2], 2)
+
     pred2 = modelo2.query(["HD"], evidence={"OLDPEAK": st, "EXANG": ex, "THAL": tal})
+    val12 = round(pred2.values[0], 2)
+    val22 = round(pred2.values[1], 2)
+    val32 = round(pred2.values[2], 2)
 
     heart = ['No Heart Disease', 'Mild Heart Disease', 'Severe Heart Disease']
 
-    # Resultados predicción M1
-    dict2 = {'Nivel Enfermedad Cardiaca': heart,
-             'Probabilidad Estimada': [round(pred.values[0], 2), round(pred.values[1], 2), round(pred.values[2], 2)]}
-
-    # Resultados predicción M2
-    dict22 = {'Nivel Enfermedad Cardiaca': heart,
-              'Probabilidad Estimada': [round(pred2.values[0], 2), round(pred2.values[1], 2),
-                                        round(pred2.values[2], 2)]}
-
     # Se crea la gráfica de barras
-
-    if math.isnan(pred.values[0]) or math.isnan(pred.values[1]) or math.isnan(pred.values[2]):
+    if math.isnan(val1) or math.isnan(val2) or math.isnan(val3):
 
         fig = make_subplots(rows=1, cols=2,
                             subplot_titles=("No es posible calcular la probabilidad con los datos ingresados",
                                             "Modelo Estimado por Puntake K2"))
-        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
-                             text=dict2['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
+                             text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
-        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
-                             text=dict22['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
+                             text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
@@ -461,23 +423,22 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
-        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15))
+                          title_text='Precisión : 0.76', row=1, col=2)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
 
-    elif math.isnan(pred2.values[0]) or math.isnan(pred2.values[1]) or math.isnan(pred2.values[2]):
+    elif math.isnan(val12) or math.isnan(val22) or math.isnan(val32):
 
         fig = make_subplots(rows=1, cols=2,
                             subplot_titles=("Modelo Estimado P1",
                                             "No es posible calcular la probabilidad con los datos ingresados"))
-        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
-                             text=dict2['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
+                             text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
-        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
-                             text=dict22['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
+                             text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
@@ -488,20 +449,20 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
-        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
+                          title_text='Precisión : 0.71', row=1, col=1)
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
 
     else:
         fig = make_subplots(rows=1, cols=2, subplot_titles=("Modelo Estimado P1",
                                                             "Modelo Estimado por Puntake K2"))
-        fig.add_trace(go.Bar(x=dict2['Nivel Enfermedad Cardiaca'], y=dict2['Probabilidad Estimada'],
-                             text=dict2['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val1, val2, val3],
+                             text=[val1, val2, val3],
                              textposition='auto'), row=1, col=1)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
-        fig.add_trace(go.Bar(x=dict22['Nivel Enfermedad Cardiaca'], y=dict22['Probabilidad Estimada'],
-                             text=dict22['Probabilidad Estimada'],
+        fig.add_trace(go.Bar(x=heart, y=[val12, val22, val32],
+                             text=[val12, val22, val32],
                              textposition='auto'), row=1, col=2)
         fig.update_traces(marker_color='#EFAFAB', textfont_size=14)
 
@@ -512,12 +473,12 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+                          title_text='Precisión : 0.71', row=1, col=1)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
+                          title_text='Precisión : 0.76', row=1, col=2)
 
-        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
+        fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
     return fig
 
