@@ -11,19 +11,13 @@ from pgmpy.estimators import HillClimbSearch
 from pgmpy.estimators import K2Score
 import networkx as nx
 from pgmpy.readwrite import BIFReader
+import psycopg2
+from sqlalchemy import create_engine, text
 
 
 ########### Cargar datos ###########
-data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
-names = ["age","sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope","ca", "thal", "num"]
-data.columns = names
-data['ca'] = pd.to_numeric(data['ca'], errors='coerce')
-data['thal'] = pd.to_numeric(data['thal'], errors='coerce')
-data = data.astype(float)
-
-########### Arreglos datos y variables discretas ###########
-# Se eliminan los Nan y se convierte a un arreglo de Numpy
-data = data.dropna()
+engine=create_engine('postgresql://postgres:proyecto2@datap2.colrzll4geas.us-east-1.rds.amazonaws.com:5432/datap2')
+data = pd.read_sql(text("SELECT * FROM datap2"), con=engine.connect())
 data = data.to_numpy()
 
 # Se estandarizan las variables para el diagnostico:
