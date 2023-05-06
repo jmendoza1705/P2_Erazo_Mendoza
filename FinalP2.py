@@ -11,13 +11,19 @@ from pgmpy.estimators import HillClimbSearch
 from pgmpy.estimators import K2Score
 import networkx as nx
 from pgmpy.readwrite import BIFReader
-import psycopg2
-from sqlalchemy import create_engine, text
 
 
 ########### Cargar datos ###########
-engine=create_engine('postgresql://postgres:proyecto2@datap2.colrzll4geas.us-east-1.rds.amazonaws.com:5432/datap2')
-data = pd.read_sql(text("SELECT * FROM datap2"), con=engine.connect())
+data =  pd.read_csv('https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data', header=None)
+names = ["age","sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope","ca", "thal", "num"]
+data.columns = names
+data['ca'] = pd.to_numeric(data['ca'], errors='coerce')
+data['thal'] = pd.to_numeric(data['thal'], errors='coerce')
+data = data.astype(float)
+
+########### Arreglos datos y variables discretas ###########
+# Se eliminan los Nan y se convierte a un arreglo de Numpy
+data = data.dropna()
 data = data.to_numpy()
 
 # Se estandarizan las variables para el diagnostico:
@@ -95,6 +101,16 @@ for i in range(len(columnas)):
     info[:,i] = DataEntrenamiento[:,columnas[i]]
 muestras = pd.DataFrame(info, columns = nombres)
 
+graph = nx.DiGraph()
+graph.add_nodes_from(modelo_HD.nodes())
+graph.add_edges_from(modelo_HD.edges())
+plt.figure(figsize = (5,5))
+pos = {'EXANG': (2, 0.4), 'AGE': (0, 0.4), 'FBS': (0, 1.6), 'CHOL': (0, 1), 'OLDPEAK': (2, 1.6), 'THAL': (1, 0.4), 'HD': (1, 1)}
+nx.draw(graph, pos = pos, with_labels = True, node_color = 'pink', node_size = 2300, font_size = 10, arrowsize = 20)
+
+##
+
+
 #Estimación de las CPDs
 modelo_HD.fit(data = muestras, estimator = MaximumLikelihoodEstimator)
 for i in modelo_HD.nodes():
@@ -147,9 +163,9 @@ plt.xlabel('Predicciones')
 plt.tight_layout()
 plt.show()
 
-precision = precision_score(anotaciones, predicciones, average = 'micro')
-cobertura = recall_score(anotaciones, predicciones, average = 'micro')
-f1 = f1_score(anotaciones, predicciones, average = 'micro')
+precision = precision_score(anotaciones, predicciones, average = 'weighted')
+cobertura = recall_score(anotaciones, predicciones, average = 'weighted')
+f1 = f1_score(anotaciones, predicciones, average = 'weighted')
 print('Precisión:', round(precision,2), '\nCobertura:', round(cobertura,2), '\nF1-Score:', round(f1,2))
 
 ##
@@ -180,6 +196,7 @@ graph.add_edges_from(estimated_modelh.edges())
 plt.figure(figsize = (5,5))
 pos = {'EXANG': (1.9, 0.3), 'THAL': (0.2, 1), 'FBS': (1.02, 0.3), 'CHOL': (1.9, 1), 'OLDPEAK': (1.9, 1.7), 'AGE': (1.02, 1.7), 'HD': (1, 1)}
 nx.draw(graph, pos = pos, with_labels = True, node_color = 'pink', node_size = 2300, font_size = 10, arrowsize = 20)
+
 
 ########### Definición Modelo ###########
 DFValidacion = pd.DataFrame(Val, columns = nombres)
@@ -218,15 +235,138 @@ for i in range(0, len(Val)):
 ########### Matriz de Confusión y Resultados Estadísticos ###########
 matrizK2 = confusion_matrix(anotacionesK2, prediccionesK2)
 cm_displayK2 = ConfusionMatrixDisplay(confusion_matrix = matrizK2, display_labels = ['No EC', 'EC Leve','EC Severa'])
-cm_display.plot(cmap = 'PuRd', colorbar = True)
+cm_displayK2.plot(cmap = 'PuRd', colorbar = True)
 plt.title('Matriz de Confusión para Predicción de Enfermedad Cardiaca (EC) \n con Estimación por Puntaje K2 \n')
 plt.ylabel('Anotaciones')
 plt.xlabel('Predicciones')
 plt.tight_layout()
 plt.show()
 
-precisionK2 = precision_score(anotacionesK2, prediccionesK2, average = 'micro')
-coberturaK2 = recall_score(anotacionesK2, prediccionesK2, average = 'micro')
-f1K2 = f1_score(anotacionesK2, prediccionesK2, average = 'micro')
+precisionK2 = precision_score(anotacionesK2, prediccionesK2, average = 'weighted')
+coberturaK2 = recall_score(anotacionesK2, prediccionesK2, average = 'weighted')
+f1K2 = f1_score(anotacionesK2, prediccionesK2, average = 'weighted')
 
 print('Precisión:', round(precisionK2,2), '\nCobertura:', round(coberturaK2,2), '\nF1-Score:', round(f1K2,2))
+
+########### Modelo Otro Grupo ###########
+
+datos = pd.read_csv("Datos Prada.csv")
+Entrenamiento = datos.iloc[:,1:]
+Validacion = pd.read_csv("DatosValidaciónPrada.csv").iloc[:,1:]
+
+##
+from pgmpy.estimators import HillClimbSearch
+from pgmpy.estimators import K2Score
+
+scoring_method = K2Score(data=Entrenamiento)
+esth = HillClimbSearch(data=Entrenamiento)
+estimated_modelh = esth.estimate(
+    scoring_method=scoring_method, max_indegree=7, max_iter=int(1e4),fixed_edges = {("Age","Chol"),("Sex","Chol"),
+                                                                                    ("Chol","Num"),("Trestbps","Num"),
+                                                                                   ("Num","Exang"),
+                                                                                   ("Num","Thalach"),
+                                                                                   ("Fbs","Num"),
+                                                                                   ("Exang","CP"),
+                                                                                   },
+                                                                                    black_list = {("Trestbps","Age"),
+                                                                                                 ("Sex","Age"),
+                                                                                                 ("Chol","Age"),
+                                                                                                 ("Num","Age"),
+                                                                                                 ("CP","Age"),
+                                                                                                 ("Exang","Age"),
+                                                                                                  ("Thalach","Age"),
+                                                                                                  ("Fbs","Age"),
+                                                                                                  ("Restecg","Age"),
+                                                                                                  ("Trestbps","Sex"),
+                                                                                                 ("Age","Sex"),
+                                                                                                 ("Chol","Sex"),
+                                                                                                 ("Num","Sex"),
+                                                                                                 ("CP","Sex"),
+                                                                                                 ("Exang","Sex"),
+                                                                                                  ("Thalach","Sex"),
+                                                                                                  ("Fbs","Sex"),
+                                                                                                  ("Restecg","Sex"),
+                                                                                                    ("Exang","Thalach"),
+                                                                                                  ("CP","Exang")
+                                                                                                 })
+
+
+print(estimated_modelh)
+print(estimated_modelh.nodes())
+print(estimated_modelh.edges())
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# Crear el gráfico dirigido del modelo
+##
+graph = nx.DiGraph()
+graph.add_nodes_from(estimated_modelh.nodes())
+graph.add_edges_from(estimated_modelh.edges())
+plt.figure(figsize = (5,5))
+pos = {'Age': (2, 0), 'Sex': (0, 1), 'Trestbps': (1, 0), 'Chol': (3, 0), 'Fbs': (3, 2),
+                                                    'Restecg': (1, 2), 'Thalach': (0, 2), 'CP': (2, 2), 'Num': (3, 1), 'Exang': (0,0)}
+nx.draw(graph, pos = pos, with_labels = True, node_color = 'pink', node_size = 2300, font_size = 10, arrowsize = 20)
+
+
+plt.axis("off") # Ocultar los ejes
+plt.title("Modelo Estimado")
+plt.show() # Mostrar el gráfico
+     ##
+
+from pgmpy.models import BayesianNetwork
+from pgmpy.estimators import MaximumLikelihoodEstimator
+
+estimated_model = BayesianNetwork(estimated_modelh)
+estimated_model.fit(data=Entrenamiento, estimator = MaximumLikelihoodEstimator)
+for i in estimated_model.nodes():
+    print("CPD ", i,"\n", estimated_model.get_cpds(i))
+    ##
+for i in range(len(estimated_model.get_cpds("Num").values)):
+    print(estimated_model.get_cpds("Num").values[i])
+
+
+from pgmpy.inference import VariableElimination
+PradaMod = VariableElimination (estimated_model)
+
+
+######
+prediccionesPrada = []
+anotacionesPrada = []
+
+for i in range(0, len(Validacion)):
+    ageP, sexP, TrsP, CholP, FbsP, ResP, ThalP, CpP, ExP = Validacion.iloc[i, 0], Validacion.iloc[i, 1], Validacion.iloc[i, 2], \
+                                                           Validacion.iloc[i, 3], Validacion.iloc[i, 4], Validacion.iloc[i, 5], \
+                                                           Validacion.iloc[i, 7], Validacion.iloc[i, 8], Validacion.iloc[i, 9]
+    anotacionesPrada = np.append(anotacionesPrada, Validacion.iloc[i, 6])
+
+    posterior_pPrada = PradaMod.query(["Num"],evidence={'Age': ageP, 'Sex': sexP, 'Trestbps': TrsP, 'Chol': CholP, 'Fbs': FbsP,
+                                                    'Restecg': ResP, 'Thalach': ThalP, 'CP': CpP, 'Exang': ExP})
+
+
+    probabilidadesPrada = posterior_pPrada.values
+
+    maximoPrada = np.max(probabilidadesPrada)
+
+    for j in range(0, len(probabilidadesPrada)):
+        if probabilidadesPrada[j] == maximoPrada:
+            posicionPrada = j
+            prediccionesPrada = np.append(prediccionesPrada, posicionPrada)
+
+anotacionesPrada = np.delete(anotacionesPrada, 18, axis = 0)
+anotacionesPrada = np.delete(anotacionesPrada, 22, axis = 0)
+anotacionesPrada = np.delete(anotacionesPrada, 23, axis = 0)
+########### Matriz de Confusión y Resultados Estadísticos ###########
+matrizPrada = confusion_matrix(anotacionesPrada, prediccionesPrada)
+cm_displayPrada = ConfusionMatrixDisplay(confusion_matrix = matrizPrada, display_labels = [0, 1, 2, 3, 4])
+cm_displayPrada.plot(cmap = 'PuRd', colorbar = True)
+plt.title('Matriz de Confusión para Predicción de Enfermedad Cardiaca (EC) \ncon Estimación por Puntaje K2 de Otro Grupo \n')
+plt.ylabel('Anotaciones')
+plt.xlabel('Predicciones')
+plt.tight_layout()
+plt.show()
+
+precisionPrada = precision_score(anotacionesPrada, prediccionesPrada, average = 'weighted')
+coberturaPrada = recall_score(anotacionesPrada, prediccionesPrada, average = 'weighted')
+f1PRada = f1_score(anotacionesPrada, prediccionesPrada, average = 'weighted')
+
+print('Precisión:', round(precisionPrada,2), '\nCobertura:', round(coberturaPrada,2), '\nF1-Score:', round(f1PRada,2))
