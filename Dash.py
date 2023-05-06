@@ -496,4 +496,4 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
     return fig
 
 if __name__ == '__main__':
-    app.run_server(debug=True, use_reloader=False, port=9878)
+    app.run_server(debug=True, use_reloader=False, port=9878, host = "0.0.0.0")
