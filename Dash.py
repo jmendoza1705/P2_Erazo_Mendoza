@@ -140,7 +140,7 @@ def EstimacionModelos():
 # VISUALIZACIONES
 
 # Visualizacion 1
-fig_v1 = px.scatter(x=data1['AGE'], y=data1['CHOL'], trendline="ols", trendline_color_override= 'lightcoral', labels={'x':'Edad (Años)', 'y':'Colesterol (mg/dL)'})
+fig_v1 = px.scatter(x=data1['AGE'], y=data1['CHOL'], trendline="ols", trendline_color_override= 'palevioletred', labels={'x':'Edad (Años)', 'y':'Colesterol (mg/dL)'})
 fig_v1.update_traces(marker_color='lightpink')
 fig_v1.update_layout(width=1000,plot_bgcolor="rgba(255,255,255,255)",title_text='Colesterol en función de la Edad', title_x=0.5, title_font_size=20)
 fig_v1.update_xaxes( showline=True, linewidth=1, linecolor='black', mirror=True)
@@ -168,10 +168,10 @@ for i in range(len(df)):
         if df[i,1] == 1:
             exang3 += 1
 
-hd = ['No Heart Desease','Mild Heart Desease','Severe Heart Desease']
+hd = ['No Enfermedad Cardiaca','Enfermedad Cardiaca Leve','Enfermedad Cardiaca Severa']
 fbs = [fbs0, fbs1, fbs3]
 exang = [exang0, exang1, exang3]
-fig_v2 = go.Figure(data=[go.Bar(name='FBS = 1', x=hd, y=fbs, marker=dict(color='crimson')),go.Bar(name='EXANG = 1', x=hd, y=exang, marker=dict(color='lightpink'))])
+fig_v2 = go.Figure(data=[go.Bar(name='FBS = 1', x=hd, y=fbs, marker=dict(color='palevioletred')),go.Bar(name='EXANG = 1', x=hd, y=exang, marker=dict(color='lightpink'))])
 fig_v2.update_layout(width=1000,barmode='group', yaxis=dict(title='Frecuencia'),  plot_bgcolor="rgba(255,255,255,255)"
                   , title='Frecuencia de Glucosa Alta y Angina Inducida por el Ejercicio', title_x=0.5, title_font_size=20,
                   legend_font_size = 16, xaxis = {'tickfont': {'size': 15}})
@@ -212,9 +212,9 @@ HD0 = [HD03, HD06, HD07]
 HD1 = [HD13, HD16, HD17]
 HD3 = [HD33, HD36, HD37]
 
-fig_v3 = go.Figure(data=[go.Bar(name='No Heart Desease', x=Tal, y=HD0, marker=dict(color='palevioletred')),
-                      go.Bar(name='Mild Heart Desease', x=Tal, y=HD1, marker=dict(color='lightpink')),
-                      go.Bar(name='Severe Heart Desease', x=Tal, y=HD3, marker=dict(color='mistyrose'))])
+fig_v3 = go.Figure(data=[go.Bar(name='No Enfermedad Cardiaca', x=Tal, y=HD0, marker=dict(color='palevioletred')),
+                      go.Bar(name='Enfermedad Cardiaca Leve', x=Tal, y=HD1, marker=dict(color='lightpink')),
+                      go.Bar(name='Enfermedad Cardiaca Severa', x=Tal, y=HD3, marker=dict(color='mistyrose'))])
 fig_v3.update_layout(width=1000,barmode='group', yaxis=dict(title='Frecuencia'),  plot_bgcolor="rgba(255,255,255,255)"
                   , title='Efecto del Tipo de Talasemia en la Enfermedad Cardiaca', title_x=0.5, title_font_size=20,
                   legend_font_size = 16, xaxis = {'tickfont': {'size': 15}})
@@ -436,7 +436,7 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+                         tickfont=dict(size=15), title_text='Precisión : 0.64', row=1, col=1)
         fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
 
 
@@ -462,7 +462,7 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+                         tickfont=dict(size=15), title_text='Precisión : 0.63', row=1, col=1)
         fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True, tickfont=dict(size=15))
 
 
@@ -486,10 +486,10 @@ def update_figure(n_clicks, age, Fbs, Chol, st, ex, tal):
                           showlegend=False)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.71', row=1, col=1)
+                         tickfont=dict(size=15), title_text='Precisión : 0.63', row=1, col=1)
 
         fig.update_xaxes(range=[-0.5, 2.5], showline=True, linewidth=1, linecolor='black', mirror=True,
-                         tickfont=dict(size=15), title_text='Precisión : 0.76', row=1, col=2)
+                         tickfont=dict(size=15), title_text='Precisión : 0.64', row=1, col=2)
 
         fig.update_yaxes(showline=True, linewidth=1, linecolor='black', mirror=True)
 
